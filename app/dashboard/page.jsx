@@ -11,7 +11,7 @@ export default function DashboardPage() {
   const [busqueda, setBusqueda] = useState('');
   const [errorGlobal, setErrorGlobal] = useState(null);
 
-  // Formateador memorizado de moneda (Evita hydration mismatches)
+  // Formateador memorizado de moneda
   const formatoCOP = useMemo(() => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -20,7 +20,7 @@ export default function DashboardPage() {
     });
   }, []);
 
-  // Fetching de datos memoizado con useCallback
+  // Carga de datos
   const cargarDashboard = useCallback(async () => {
     setCargando(true);
     setErrorGlobal(null);
@@ -48,7 +48,7 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-  // Manejo de autenticación y sincronización en tiempo real
+  // Manejo de sesión y tiempo real
   useEffect(() => {
     cargarDashboard();
 
@@ -63,13 +63,12 @@ export default function DashboardPage() {
     };
   }, [cargarDashboard, router]);
 
-  // Handler de eliminación optimista
+  // Eliminación optimista
   const eliminarProducto = async (id) => {
     if (!confirm('¿Estás seguro de eliminar este producto? Esta acción borra sus ingredientes asociados.')) {
       return;
     }
 
-    // Copia previa para rollback optimista si falla
     const productosPrevios = [...productos];
     setProductos((prev) => prev.filter((p) => p.id !== id));
 
@@ -78,17 +77,15 @@ export default function DashboardPage() {
     if (error) {
       console.error('Error al eliminar:', error.message);
       setErrorGlobal('Error al eliminar el producto. Inténtalo de nuevo.');
-      setProductos(productosPrevios); // Rollback
+      setProductos(productosPrevios);
     }
   };
 
-  // Logout directo desde el Dashboard
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
     router.replace('/login');
   };
 
-  // Filtrado de productos memoizado para evitar ejecuciones innecesarias en re-renders
   const productosFiltrados = useMemo(() => {
     const query = busqueda.trim().toLowerCase();
     if (!query) return productos;
@@ -97,7 +94,7 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 text-white min-h-screen">
-      {/* Header & Acciones Principal */}
+      {/* Header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-gray-800 pb-6">
         <div>
           <h1 className="text-3xl font-extrabold text-[#c4a77d] tracking-tight">
@@ -197,11 +194,11 @@ export default function DashboardPage() {
               <div>
                 <div className="grid grid-cols-2 gap-2 bg-[#1a1a1a] p-3 rounded-xl text-center mb-4 border border-gray-800">
                   <div>
-                    <span className="block text-[10px] text-gray-500 uppercase tracking-wider"></span>
+                    <span className="block text-[10px] text-gray-500 uppercase tracking-wider">Margen</span>
                     <span className="text-sm font-bold text-[#c4a77d]">{item.margen_porcentaje}%</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] text-gray-500 uppercase tracking-wider"></span>
+                    <span className="block text-[10px] text-gray-500 uppercase tracking-wider">Markup</span>
                     <span className="text-sm font-bold text-gray-300">{item.markup_porcentaje}%</span>
                   </div>
                 </div>
@@ -209,7 +206,7 @@ export default function DashboardPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => router.push(`/producto/editar?id=${item.id}`)}
+                    onClick={() => router.push(`/producto/nuevo?id=${item.id}`)}
                     className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-2 rounded-lg text-xs font-bold transition"
                   >
                     Editar
