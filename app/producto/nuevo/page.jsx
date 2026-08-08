@@ -1,9 +1,11 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+
+import { Suspense, useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../supabaseClient';
 
-export default function FormularioProductoPage() {
+// Componente con la lógica principal
+function FormularioProductoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const productoId = searchParams.get('id');
@@ -18,15 +20,11 @@ export default function FormularioProductoPage() {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
       currency: 'COP',
-      minimumFractionDigits: 0
+      minimumFractionDigits: 0,
     });
   }, []);
 
-  useEffect(() => {
-    if (productoId) cargarProductoExistente();
-  }, [productoId]);
-
-  const cargarProductoExistente = async () => {
+  const cargarProductoExistente = useCallback(async () => {
     try {
       const { data: prod, error: errorProd } = await supabase
         .from('productos')
@@ -51,7 +49,7 @@ export default function FormularioProductoPage() {
               nombre: i.nombre || '',
               unidad: i.unidad_medida || 'gr',
               receta: i.cantidad_receta || 1,
-              costo: i.costo_paquete || 0
+              costo: i.costo_paquete || 0,
             }))
           );
         }
@@ -61,7 +59,11 @@ export default function FormularioProductoPage() {
     } finally {
       setCargando(false);
     }
-  };
+  }, [productoId]);
+
+  useEffect(() => {
+    if (productoId) cargarProductoExistente();
+  }, [productoId, cargarProductoExistente]);
 
   const agregarFila = () => {
     setIngredientes([...ingredientes, { nombre: '', unidad: 'gr', receta: 1, costo: 0 }]);
@@ -78,7 +80,7 @@ export default function FormularioProductoPage() {
   };
 
   const costoTotal = ingredientes.reduce((acc, item) => {
-    return acc + ((parseFloat(item.receta) || 0) * (parseFloat(item.costo) || 0));
+    return acc + (parseFloat(item.receta) || 0) * (parseFloat(item.costo) || 0);
   }, 0);
 
   const ganancia = precioVenta - costoTotal;
@@ -115,7 +117,6 @@ export default function FormularioProductoPage() {
         targetId = nuevo.id;
       }
 
-      // Reemplazo limpio de ingredientes
       await supabase.from('ingredientes').delete().eq('producto_id', targetId);
 
       const insumosAptos = ingredientes.filter((i) => i.nombre.trim() !== '');
@@ -125,7 +126,7 @@ export default function FormularioProductoPage() {
           nombre: i.nombre.trim(),
           unidad_medida: i.unidad,
           cantidad_receta: parseFloat(i.receta) || 0,
-          costo_paquete: parseFloat(i.costo) || 0
+          costo_paquete: parseFloat(i.costo) || 0,
         }));
 
         const { error: errIngs } = await supabase.from('ingredientes').insert(aInsertar);
@@ -142,17 +143,17 @@ export default function FormularioProductoPage() {
   };
 
   if (cargando) {
-    return <div className="p-8 text-center text-gray-400">Cargando producto...</div>;
+    return <div className="p-8 text-center text-gray-400 min-h-screen bg-[#1a1a1a]">Cargando producto...</div>;
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-8 text-white">
+    <div className="max-w-6xl mx-auto p-4 md:p-8 text-white min-h-screen">
       <div className="flex items-center justify-between mb-8 border-b border-gray-700 pb-4">
         <h1 className="text-2xl font-bold text-[#c4a77d]">
-          {productoId ? 'Don Paquito Inventario' : 'Nuevo Producto'}
+          {productoId ? 'Editar Escandallo' : 'Nuevo Producto'}
         </h1>
         <button type="button" onClick={() => router.push('/dashboard')} className="text-gray-400 hover:text-white text-sm">
-          ← Volver al Inicio
+          ← Volver al Dashboard
         </button>
       </div>
 
@@ -284,7 +285,7 @@ export default function FormularioProductoPage() {
             disabled={guardando}
             className="w-full py-4 bg-[#c4a77d] hover:bg-white text-[#1a1a1a] font-bold rounded-xl text-sm uppercase tracking-wider shadow-xl transition disabled:opacity-50"
           >
-            {guardando ? 'Guardando en Servidor...' : 'Guardar '}
+            {guardando ? 'Guardando en Servidor...' : 'Guardar Producto'}
           </button>
         </div>
 
@@ -306,11 +307,11 @@ export default function FormularioProductoPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-[#1a1a1a] p-3 rounded-xl text-center border border-gray-700">
-                <span className="block text-xs text-gray-400"></span>
+                <span className="block text-[10px] text-gray-400 uppercase">Margen</span>
                 <span className="text-xl font-bold text-[#c4a77d]">{margen.toFixed(1)}%</span>
               </div>
               <div className="bg-[#1a1a1a] p-3 rounded-xl text-center border border-gray-700">
-                <span className="block text-xs text-gray-400"></span>
+                <span className="block text-[10px] text-gray-400 uppercase">Markup</span>
                 <span className="text-xl font-bold text-gray-300">{markup.toFixed(1)}%</span>
               </div>
             </div>
@@ -318,5 +319,20 @@ export default function FormularioProductoPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+// Exportación envuelta en Suspense para Vercel
+export default function FormularioProductoPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center text-[#c4a77d] font-bold">
+          Cargando formulario...
+        </div>
+      }
+    >
+      <FormularioProductoContent />
+    </Suspense>
   );
 }
