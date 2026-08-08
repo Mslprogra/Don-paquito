@@ -63,21 +63,37 @@ export default function DashboardPage() {
     };
   }, [cargarDashboard, router]);
 
-  // Eliminación optimista
+  // Eliminación de producto (Manejo explícito de relaciones y rollback)
   const eliminarProducto = async (id) => {
     if (!confirm('¿Estás seguro de eliminar este producto? Esta acción borra sus ingredientes asociados.')) {
       return;
     }
 
+    // Copia de respaldo para rollback optimista
     const productosPrevios = [...productos];
     setProductos((prev) => prev.filter((p) => p.id !== id));
 
-    const { error } = await supabase.from('productos').delete().eq('id', id);
+    try {
+      // 1. Eliminar relaciones dependientes (evita fallos de FK constraint)
+      const { error: errIngredientes } = await supabase
+        .from('ingredientes')
+        .delete()
+        .eq('producto_id', id);
 
-    if (error) {
-      console.error('Error al eliminar:', error.message);
-      setErrorGlobal('Error al eliminar el producto. Inténtalo de nuevo.');
-      setProductos(productosPrevios);
+      if (errIngredientes) throw errIngredientes;
+
+      // 2. Eliminar la entidad principal
+      const { error: errProducto } = await supabase
+        .from('productos')
+        .delete()
+        .eq('id', id);
+
+      if (errProducto) throw errProducto;
+
+    } catch (error) {
+      console.error('Error durante la eliminación:', error.message);
+      setErrorGlobal(`No se pudo eliminar el producto: ${error.message}`);
+      setProductos(productosPrevios); // Restaurar el estado previo
     }
   };
 
