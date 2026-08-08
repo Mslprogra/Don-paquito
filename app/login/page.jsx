@@ -5,7 +5,7 @@ import { supabase } from '../../supabaseClient';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [esRegistro, setEsRegistro] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -16,17 +16,27 @@ export default function LoginPage() {
     setCargando(true);
     setError(null);
 
+    // Normalizamos el usuario eliminando espacios y pasándolo a minúsculas
+    const usuarioLimpio = username.trim().toLowerCase();
+    
+    // Generamos un correo sintético interno para Supabase Auth
+    const emailFicticio = `${usuarioLimpio}@donpaquito.local`;
+
     try {
       if (esRegistro) {
         const { error: errorSignUp } = await supabase.auth.signUp({
-          email,
+          email: emailFicticio,
           password,
+          options: {
+            data: { username: usuarioLimpio }, // Guardamos el nombre de usuario original
+          },
         });
         if (errorSignUp) throw errorSignUp;
-        alert('Registro exitoso. Revisa tu correo o inicia sesión.');
+        alert('Registro exitoso. Ya puedes iniciar sesión con tu usuario.');
+        setEsRegistro(false);
       } else {
         const { error: errorSignIn } = await supabase.auth.signInWithPassword({
-          email,
+          email: emailFicticio,
           password,
         });
         if (errorSignIn) throw errorSignIn;
@@ -34,7 +44,14 @@ export default function LoginPage() {
         router.refresh();
       }
     } catch (err) {
-      setError(err.message);
+      // Personalizamos mensajes de error comunes
+      if (err.message.includes('Invalid login credentials')) {
+        setError('Usuario o contraseña incorrectos.');
+      } else if (err.message.includes('User already registered')) {
+        setError('El nombre de usuario ya está registrado. Elige otro.');
+      } else {
+        setError(err.message);
+      }
     } finally {
       setCargando(false);
     }
@@ -58,13 +75,13 @@ export default function LoginPage() {
 
         <form onSubmit={manejarAutenticacion} className="space-y-4">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Correo Electrónico</label>
+            <label className="block text-xs text-gray-400 mb-1">Usuario</label>
             <input
-              type="email"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu@email.com"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Ej: donpaquito"
               className="w-full p-3 bg-[#1a1a1a] border border-gray-600 rounded-lg text-white outline-none focus:border-[#c4a77d]"
             />
           </div>
